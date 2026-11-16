@@ -65,6 +65,12 @@ export function createAudio() {
     dryFire() { tone(900, 700, 0.04, 'square', 0.12); },
     reload() { tone(500, 300, 0.07, 'square', 0.18); setTimeout(() => tone(700, 420, 0.07, 'square', 0.18), 160); },
     hit(kill) { tone(kill ? 1180 : 880, kill ? 700 : 660, 0.07, 'sine', 0.3); },
+    // Headshot confirmation: a bright brass "ding-ding" an octave above the
+    // body-hit blip, so a cracked cap is audible before it is visible.
+    headshot(kill) {
+      tone(1560, 1500, 0.06, 'triangle', 0.34);
+      setTimeout(() => tone(kill ? 2090 : 1760, kill ? 1560 : 1400, 0.09, 'triangle', 0.3), 55);
+    },
     hurt() { tone(140, 80, 0.18, 'sawtooth', 0.25); },
     buy() { tone(660, 660, 0.07, 'sine', 0.25); setTimeout(() => tone(990, 990, 0.09, 'sine', 0.25), 80); },
     denied() { tone(220, 180, 0.12, 'square', 0.2); },

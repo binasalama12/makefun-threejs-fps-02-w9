@@ -70,11 +70,12 @@ export function createHud() {
     setCrosshair(spreadPx) {
       cross.style.setProperty('--sp', `${Math.round(6 + spreadPx)}px`);
     },
-    hitMarker(kill) {
+    hitMarker(kill, headshot = false) {
       hitmarker.classList.add('on');
       hitmarker.classList.toggle('kill', kill);
+      hitmarker.classList.toggle('head', headshot);
       clearTimeout(hitTimer);
-      hitTimer = setTimeout(() => hitmarker.classList.remove('on'), kill ? 260 : 110);
+      hitTimer = setTimeout(() => hitmarker.classList.remove('on', 'kill', 'head'), kill ? 280 : headshot ? 200 : 110);
     },
     damageFlash() {
       vignette.classList.add('on');
@@ -87,6 +88,37 @@ export function createHud() {
       while (feedEl.children.length > 5) feedEl.lastChild.remove();
       setTimeout(() => { line.style.opacity = '0'; }, 4200);
       setTimeout(() => { line.remove(); }, 4900);
+    },
+    // Kill feed entry: "Attacker ▸ Victim" with an optional weapon tag and a
+    // coral ◎ HEADSHOT mark. Shares the feed stack (last 5, fading) so kills
+    // read as one timeline instead of a second panel.
+    killFeed(attacker, victim, { headshot = false, weapon = '', bonus = '' } = {}) {
+      const line = document.createElement('div');
+      line.className = 'feed-kill';
+      const who = document.createElement('span');
+      who.textContent = `${attacker} ▸ ${victim}`;
+      line.append(who);
+      if (weapon) {
+        const w = document.createElement('span');
+        w.className = 'feed-weapon';
+        w.textContent = ` · ${weapon}`;
+        line.append(w);
+      }
+      if (headshot) {
+        const hs = document.createElement('span');
+        hs.className = 'feed-hs';
+        hs.textContent = ' ◎ HEADSHOT';
+        line.append(hs);
+      }
+      if (bonus) {
+        const b = document.createElement('span');
+        b.textContent = ` ${bonus}`;
+        line.append(b);
+      }
+      feedEl.prepend(line);
+      while (feedEl.children.length > 5) feedEl.lastChild.remove();
+      setTimeout(() => { line.style.opacity = '0'; }, 4600);
+      setTimeout(() => { line.remove(); }, 5300);
     },
     showBanner(text, sub) {
       banner.innerHTML = '';

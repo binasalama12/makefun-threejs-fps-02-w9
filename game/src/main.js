@@ -256,15 +256,17 @@ function playerShoot() {
       if (bot && !bot.alive) continue;
       end = hit.point;
       if (bot) {
-        let dmg = def.damage * (hit.object.userData.part === 'head' ? def.headMult : 1);
+        const isHead = hit.object.userData.part === 'head';
+        let dmg = def.damage * (isHead ? def.headMult : 1);
         if (hit.distance > def.range) dmg *= 0.45;
         const killed = bots.damage(bot, dmg);
-        hud.hitMarker(killed);
-        audio.hit(killed);
+        hud.hitMarker(killed, isHead);
+        if (isHead) audio.headshot(killed); else audio.hit(killed);
         if (killed) {
           S.kills += 1;
-          S.money += 300;
-          hud.feed(`You ▸ ${bot.name} (+$300)`);
+          const reward = isHead ? 400 : 300;
+          S.money += reward;
+          hud.killFeed('You', bot.name, { headshot: isHead, weapon: def.name, bonus: `(+$${reward})` });
           checkElimination();
         }
       }
@@ -319,9 +321,10 @@ function onBotFire(bot, target, err) {
     spawnTracer(gunTip, hit.point, bot.team === 'raider' ? 0xff9a7a : 0x9ae8ff);
     const victim = hit.object.userData.bot;
     if (victim && victim.alive && victim.team !== bot.team) {
-      const dmg = BOT_DMG * (hit.object.userData.part === 'head' ? 2.4 : 1);
+      const isHead = hit.object.userData.part === 'head';
+      const dmg = BOT_DMG * (isHead ? 2.4 : 1);
       if (bots.damage(victim, dmg)) {
-        hud.feed(`${bot.name} ▸ ${victim.name}`);
+        hud.killFeed(bot.name, victim.name, { headshot: isHead });
         checkElimination();
       }
     }
@@ -374,7 +377,7 @@ function explodeGrenade(g) {
     if (!hasLineOfSight(g.pos, b.position, world.shootables) && g.pos.distanceTo(b.position) > 2) continue;
     hurt(b.position, (dmg) => {
       if (bots.damage(b, dmg)) {
-        if (b.team === 'raider') { S.money += 200; hud.feed(`Foam Burst ▸ ${b.name}`); }
+        if (b.team === 'raider') { S.money += 200; hud.killFeed('You', b.name, { weapon: GRENADE_NAME }); }
         checkElimination();
       }
     });

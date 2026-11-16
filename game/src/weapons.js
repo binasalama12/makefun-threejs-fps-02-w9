@@ -9,22 +9,22 @@ import { PALETTE } from './palette.js';
 export const WEAPONS = {
   harborline: {
     id: 'harborline', name: 'Harborline P9', kind: 'pistol', price: 0,
-    damage: 24, headMult: 3.2, fireGap: 0.24, auto: false, magSize: 12, reserve: 48,
+    damage: 24, headMult: 4.0, fireGap: 0.24, auto: false, magSize: 12, reserve: 48,
     reloadTime: 1.25, pellets: 1, spreadBase: 0.006, spreadMove: 0.02, recoil: 0.011, range: 60,
   },
   kelp: {
     id: 'kelp', name: 'Kelp-9 Spraygun', kind: 'smg', price: 900,
-    damage: 17, headMult: 2.6, fireGap: 0.075, auto: true, magSize: 32, reserve: 96,
+    damage: 17, headMult: 3.2, fireGap: 0.075, auto: true, magSize: 32, reserve: 96,
     reloadTime: 1.7, pellets: 1, spreadBase: 0.011, spreadMove: 0.034, recoil: 0.007, range: 45,
   },
   breakwater: {
     id: 'breakwater', name: 'Breakwater SG', kind: 'shotgun', price: 1100,
-    damage: 11, headMult: 1.8, fireGap: 0.85, auto: false, magSize: 6, reserve: 24,
+    damage: 11, headMult: 2.0, fireGap: 0.85, auto: false, magSize: 6, reserve: 24,
     reloadTime: 2.4, pellets: 7, spreadBase: 0.045, spreadMove: 0.06, recoil: 0.03, range: 22,
   },
   beacon: {
     id: 'beacon', name: 'Beacon AR', kind: 'rifle', price: 2400,
-    damage: 33, headMult: 3.4, fireGap: 0.105, auto: true, magSize: 30, reserve: 90,
+    damage: 33, headMult: 4.0, fireGap: 0.105, auto: true, magSize: 30, reserve: 90,
     // Playtest tuning (W9 revision): the Beacon kicked a touch too hard for
     // its mid-range job, so recoil eases 0.012 -> 0.010 and its moving
     // spread tightens 0.026 -> 0.023. Anchored fire is unchanged, so the
@@ -33,7 +33,7 @@ export const WEAPONS = {
   },
   gullwing: {
     id: 'gullwing', name: 'Gullwing DMR', kind: 'dmr', price: 2700,
-    damage: 68, headMult: 2.4, fireGap: 0.62, auto: false, magSize: 8, reserve: 32,
+    damage: 68, headMult: 3.0, fireGap: 0.62, auto: false, magSize: 8, reserve: 32,
     reloadTime: 2.1, pellets: 1, spreadBase: 0.0015, spreadMove: 0.03, recoil: 0.026, range: 110,
   },
 };
