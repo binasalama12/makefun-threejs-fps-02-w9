@@ -20,7 +20,7 @@ const _from = new THREE.Vector3();
 const _to = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 
-export function hasLineOfSight(a, b, shootables) {
+export function hasLineOfSight(a, b, shootables, smokeBlock = null) {
   _from.set(a.x, 1.5, a.z);
   _to.set(b.x, 1.35, b.z);
   _dir.subVectors(_to, _from);
@@ -29,7 +29,10 @@ export function hasLineOfSight(a, b, shootables) {
   _dir.normalize();
   _ray.set(_from, _dir);
   _ray.far = dist - 0.6;
-  return _ray.intersectObjects(shootables, false).length === 0;
+  if (_ray.intersectObjects(shootables, false).length > 0) return false;
+  // A bloomed Mist Veil cloud blocks sight exactly like a wall does.
+  if (smokeBlock && smokeBlock(a, b)) return false;
+  return true;
 }
 
 function buildFigure(team) {
@@ -137,7 +140,7 @@ export function createBots(scene, defs) {
         if (d > SIGHT_RANGE) continue;
         const facing = -Math.sin(bot.yaw) * (p.x - bot.position.x) - Math.cos(bot.yaw) * (p.z - bot.position.z);
         if (d > 3 && facing / (d || 1) < FOV_COS) continue;
-        if (!hasLineOfSight(bot.position, p, ctx.shootables)) continue;
+        if (!hasLineOfSight(bot.position, p, ctx.shootables, ctx.smokeBlock)) continue;
         if (d < bestD) { bestD = d; best = enemy; }
       }
       if (best) { bot.target = best; bot.visibleFor = 0.9; }
@@ -161,7 +164,7 @@ export function createBots(scene, defs) {
           z: bot.position.z - Math.sin(bot.yaw) * bot.strafeDir * 2.2,
         };
       }
-      wantFire = bot.visibleFor > 0.55 || (bot.target && hasLineOfSight(bot.position, p, ctx.shootables));
+      wantFire = bot.visibleFor > 0.55 || (bot.target && hasLineOfSight(bot.position, p, ctx.shootables, ctx.smokeBlock));
     } else if (ctx.objectiveFor(bot)) {
       moveTarget = ctx.objectiveFor(bot);
     } else if (bot.holdPoint && ctx.holdMode) {

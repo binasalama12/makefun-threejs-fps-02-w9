@@ -50,11 +50,11 @@ export function createHud() {
       hpFill.style.background = hp > 55 ? 'var(--aqua)' : hp > 25 ? 'var(--brass)' : 'var(--coral)';
       setText(moneyEl, 'money', `$${money}`);
     },
-    setAmmo(mag, reserve, name, grenades) {
+    setAmmo(mag, reserve, name, grenades, smokes = 0) {
       setText(ammoMag, 'mag', String(mag));
       setText(ammoReserve, 'res', `/ ${reserve}`);
       setText(weaponName, 'wn', name);
-      setText(nadeCount, 'nade', `Foam Burst × ${grenades}  [G]`);
+      setText(nadeCount, 'nade', `Foam Burst × ${grenades} [G] · Mist Veil × ${smokes} [H]`);
       ammoBox.classList.toggle('empty', mag === 0);
     },
     setTop(round, wScore, rScore, seconds, phase) {
@@ -134,7 +134,7 @@ export function createHud() {
       bannerTimer = setTimeout(() => banner.classList.remove('on'), 2600);
     },
     showBuy(items, money) {
-      buyMoney.textContent = `Cash $${money} — press 1-5 to buy, B or wait to sail out`;
+      buyMoney.textContent = `Cash $${money} — press 1-6 to buy, B or wait to sail out`;
       buyRows.innerHTML = '';
       for (const item of items) {
         const row = document.createElement('div');

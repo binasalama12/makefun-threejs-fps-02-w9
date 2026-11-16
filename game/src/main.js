@@ -14,13 +14,15 @@ import { createPlayer, collideMove } from './player.js';
 import { createInput } from './input.js';
 import { createAudio } from './audio.js';
 import { createHud } from './hud.js';
-import { WEAPONS, BUY_ORDER, GRENADE_PRICE, GRENADE_NAME, createLoadout, currentDef, spreadFor, createWeaponRig } from './weapons.js';
+import { WEAPONS, BUY_ORDER, GRENADE_PRICE, GRENADE_NAME, SMOKE_PRICE, SMOKE_NAME, createLoadout, currentDef, spreadFor, createWeaponRig } from './weapons.js';
 import { createBots, hasLineOfSight } from './bots.js';
+import { createSmokeSystem } from './smoke.js';
 
 const FIXED = 1 / 60;
 const ROUND_TIME = 100;
 const PLANT_TIME = 35;
 const BUY_TIME = 12;
+const FREEZE_TIME = 3;
 const WIN_SCORE = 5;
 
 const params = new URLSearchParams(window.location.search);
@@ -70,6 +72,7 @@ const BOT_DEFS = [
 ];
 const bots = createBots(scene, BOT_DEFS);
 const botByName = new Map(bots.bots.map((b) => [b.name, b]));
+const smoke = createSmokeSystem(scene);
 
 // Enemy adapters shared by every bot's senses.
 const playerAdapter = { isPlayer: true, alive: () => body.alive, position: () => body.position };
@@ -172,6 +175,10 @@ function buyItems() {
     key: 5, id: 'grenade', name: `${GRENADE_NAME} grenade`, price: GRENADE_PRICE,
     owned: loadout.grenades > 0, equipped: false, afford: S.money >= GRENADE_PRICE,
   });
+  items.push({
+    key: 6, id: 'smoke', name: `${SMOKE_NAME} smoke`, price: SMOKE_PRICE,
+    owned: loadout.smokes > 0, equipped: false, afford: S.money >= SMOKE_PRICE,
+  });
   return items;
 }
 function refreshBuy() { if (S.phase === 'buy') hud.showBuy(buyItems(), S.money); }
@@ -189,6 +196,12 @@ function buyKey(n) {
     S.money -= GRENADE_PRICE;
     loadout.grenades += 1;
     audio.buy();
+  } else if (item.id === 'smoke') {
+    if (S.money < SMOKE_PRICE || loadout.smokes >= 2) { audio.denied(); return; }
+    S.money -= SMOKE_PRICE;
+    loadout.smokes += 1;
+    audio.buy();
+    hud.feed(`Bought ${SMOKE_NAME} smoke`);
   } else if (loadout.owned.has(item.id)) {
     equip(item.id);
     audio.buy();
@@ -359,10 +372,32 @@ function throwGrenade() {
   mesh.position.copy(camera.position).addScaledVector(_dir, 0.5);
   scene.add(mesh);
   grenades.push({
-    mesh, fuse: 1.5,
+    mesh, fuse: 1.5, kind: 'frag',
     vel: _dir.clone().multiplyScalar(17).add(new THREE.Vector3(0, 3.5, 0)),
     pos: mesh.position,
   });
+}
+function throwSmoke() {
+  if (loadout.smokes <= 0 || !body.alive) return;
+  if (S.phase !== 'live' && S.phase !== 'planted') return;
+  loadout.smokes -= 1;
+  audio.throwWhoosh();
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8),
+    new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.foam), roughness: 0.5 }));
+  camera.getWorldDirection(_dir);
+  mesh.position.copy(camera.position).addScaledVector(_dir, 0.5);
+  scene.add(mesh);
+  grenades.push({
+    mesh, fuse: 1.1, kind: 'smoke',
+    vel: _dir.clone().multiplyScalar(16).add(new THREE.Vector3(0, 3.2, 0)),
+    pos: mesh.position,
+  });
+}
+function bloomSmoke(g) {
+  scene.remove(g.mesh);
+  smoke.spawn(g.pos);
+  audio.smokePop();
+  hud.feed(`${SMOKE_NAME} blooms — sight lines cut`);
 }
 function explodeGrenade(g) {
   scene.remove(g.mesh);
@@ -420,6 +455,7 @@ function startRound() {
   bots.reset(BOT_DEFS);
   for (const g of grenades) scene.remove(g.mesh);
   grenades.length = 0;
+  smoke.clear();
   for (const e of effects) scene.remove(e.mesh);
   effects.length = 0;
   charge.visible = false;
@@ -439,6 +475,7 @@ function startMatch() {
   loadout.owned = fresh.owned;
   loadout.ammo = fresh.ammo;
   loadout.grenades = 0;
+  loadout.smokes = 0;
   equip('harborline');
   startRound();
 }
@@ -485,6 +522,7 @@ hud.onPlay(() => {
 const botCtx = {
   colliders: world.colliders,
   shootables: world.shootables,
+  smokeBlock: (a, b) => smoke.blocks(a, b),
   holdMode: false,
   enemiesOf,
   objectiveFor(bot) {
@@ -504,9 +542,15 @@ function step(dt) {
 
   // Phase transitions driven by the clock.
   if (S.phase === 'buy' && S.phaseT <= 0) {
+    // Freeze-time: weapons down, nobody moves, the objective banner gets
+    // three clear seconds so the plan reads before the shooting starts.
+    S.phase = 'freeze';
+    S.phaseT = FREEZE_TIME;
+    hud.hideBuy();
+    hud.showBanner('PLANT THE CHARGE', 'Pier tip — hold F at the coral ring · the Raiders will defend it');
+  } else if (S.phase === 'freeze' && S.phaseT <= 0) {
     S.phase = 'live';
     S.phaseT = ROUND_TIME;
-    hud.hideBuy();
     hud.showBanner('SAIL OUT', 'Plant the charge at the pier tip');
   } else if (S.phase === 'live' && S.phaseT <= 0) {
     endRound('raider', 'Time expired — no plant');
@@ -521,11 +565,13 @@ function step(dt) {
     else { S.round += 1; startRound(); }
   }
 
-  // The player moves in every active phase; bots only fight once live.
-  if (S.phase !== 'roundEnd' && S.phase !== 'matchEnd') {
+  // The player moves in every active phase except freeze-time, where the
+  // whole marina holds still; bots only fight once live.
+  if (S.phase !== 'roundEnd' && S.phase !== 'matchEnd' && S.phase !== 'freeze') {
     if (body.alive) player.step(dt, input.state.keys);
     else body.eye += (0.55 - body.eye) * Math.min(1, dt * 3);
   }
+  smoke.update(dt);
   rig.step(dt, loadout);
   botCtx.holdMode = S.phase === 'planted';
   if (S.phase === 'live' || S.phase === 'planted') bots.step(dt, botCtx);
@@ -574,7 +620,10 @@ function step(dt) {
     g.vel.y -= 18 * dt;
     const ground = collideStepGrenade(g, dt);
     if (ground && g.vel.y < 0) { g.vel.y *= -0.35; g.vel.x *= 0.7; g.vel.z *= 0.7; }
-    if (g.fuse <= 0) { grenades.splice(i, 1); explodeGrenade(g); }
+    if (g.fuse <= 0) {
+      grenades.splice(i, 1);
+      if (g.kind === 'smoke') bloomSmoke(g); else explodeGrenade(g);
+    }
   }
   // Tracers + blast effects fade.
   for (const t of tracers) {
@@ -604,8 +653,9 @@ let prevFiring = false;
 function handleKeys() {
   if (input.tapped('KeyR')) startReload();
   if (input.tapped('KeyG')) throwGrenade();
+  if (input.tapped('KeyH')) throwSmoke();
   if (S.phase === 'buy') {
-    for (let n = 1; n <= 5; n += 1) if (input.tapped(`Digit${n}`)) buyKey(n);
+    for (let n = 1; n <= 6; n += 1) if (input.tapped(`Digit${n}`)) buyKey(n);
     if (input.tapped('KeyB')) hud.hideBuy();
   } else {
     const slots = ['harborline', 'kelp', 'breakwater', 'beacon', 'gullwing'];
@@ -621,7 +671,7 @@ function refreshHud() {
   const def = currentDef(loadout);
   const slot = loadout.ammo[loadout.current];
   hud.setVitals(body.hp, S.money);
-  hud.setAmmo(slot.mag, slot.reserve, def.name, loadout.grenades);
+  hud.setAmmo(slot.mag, slot.reserve, def.name, loadout.grenades, loadout.smokes);
   hud.setTop(S.round, S.wScore, S.rScore, S.phaseT, S.phase);
   hud.setCrosshair(spreadFor(loadout, player.speed(), body.crouching) * 620);
   if (S.phase === 'live' && body.alive && body.position.distanceTo(SITE_POS) < SITE_RADIUS && S.plantProgress > 0) {
@@ -630,7 +680,8 @@ function refreshHud() {
     hud.setPlant(S.defuseProgress, 'A Raider is defusing!');
   } else hud.setPlant(null, '');
   let objective = '';
-  if (S.phase === 'buy') objective = 'Buy phase — the chandlery is open (keys 1–5)';
+  if (S.phase === 'buy') objective = 'Buy phase — the chandlery is open (keys 1–6)';
+  else if (S.phase === 'freeze') objective = 'Freeze — plant the charge at the pier tip';
   else if (S.phase === 'live') objective = body.position.distanceTo(SITE_POS) < SITE_RADIUS ? 'Hold F to plant the charge' : 'Plant the charge at the pier tip';
   else if (S.phase === 'planted') objective = 'Charge planted — defend the pier tip!';
   else if (S.phase === 'roundEnd') objective = S.endReason;
@@ -687,7 +738,7 @@ function setupShot(mode) {
       stats: ['Round 1 · Cash $2450 · Beacon AR available at the chandlery'],
       action: 'Click to play',
     });
-    hud.setObjective('Buy phase — the chandlery is open (keys 1–5)');
+    hud.setObjective('Buy phase — the chandlery is open (keys 1–6)');
   } else if (mode === 'play') {
     body.position.set(2.5, 0, -4.5);
     body.hp = 68;

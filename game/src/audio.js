@@ -82,5 +82,6 @@ export function createAudio() {
     roundWin() { tone(523, 523, 0.12, 'sine', 0.28); setTimeout(() => tone(784, 784, 0.18, 'sine', 0.28), 130); },
     roundLose() { tone(392, 392, 0.14, 'sine', 0.28); setTimeout(() => tone(262, 262, 0.22, 'sine', 0.28), 150); },
     throwWhoosh() { noise(0.18, 0.3, 1200, 'bandpass'); },
+    smokePop() { noise(0.85, 0.4, 2600, 'highpass'); tone(340, 240, 0.2, 'sine', 0.1); },
   };
 }

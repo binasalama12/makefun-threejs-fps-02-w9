@@ -40,6 +40,8 @@ export const WEAPONS = {
 export const BUY_ORDER = ['kelp', 'breakwater', 'beacon', 'gullwing'];
 export const GRENADE_PRICE = 300;
 export const GRENADE_NAME = 'Foam Burst';
+export const SMOKE_PRICE = 200;
+export const SMOKE_NAME = 'Mist Veil';
 
 export function createLoadout() {
   // owned: weapon ids the player has bought (the pistol is always owned).
@@ -53,6 +55,7 @@ export function createLoadout() {
     current: 'harborline',
     ammo,
     grenades: 0,
+    smokes: 0,
     cooldown: 0,
     reloadLeft: 0,
     flash: 0,
